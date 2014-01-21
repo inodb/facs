@@ -33,13 +33,16 @@ static int query_usage (void)
   fprintf (stderr, "\nUsage: facs query [options]\n");
   fprintf (stderr, "Options:\n");
   fprintf (stderr, "\t-r <file>    Reference Bloom filter to query against.\n");
-  fprintf (stderr, "\t-q <file>    A file in FASTA/FASTQ format containing query sequences.\n");
+  fprintf (stderr, "\t-q <file>    A file in FASTA/FASTQ format containing unpaired query sequences.\n");
+  fprintf (stderr, "\t-1 <file>    A file in FASTA/FASTQ format with #1 mates.\n");
+  fprintf (stderr, "\t-2 <file>    A file in FASTA/FASTQ format with #2 mates.\n");
   fprintf (stderr, "\t-t <float>   A threshold value between 0 and 1.0. Default: depends on word size (k), typically 0.4.\n");
   fprintf (stderr, "\t-f <string>  Output format for reports. Valid values are: 'json' and 'tsv'\n");
   fprintf (stderr, "\t-s <float>   Sampling rate. Setting this parameter to less than 1.0 means you only\n\t             consider a sample of reads from the query file.\n");
   fprintf (stderr, "\n");
   fprintf (stderr, "Example:\n");
   fprintf (stderr, "\tfacs query -r hs.bloom -q reads.fq\n");
+  fprintf (stderr, "\tfacs query -r hs.bloom -1 reads1.fq -2 reads2.fq\n");
   exit(1);
 }
 
@@ -52,9 +55,10 @@ int bq_main (int argc, char **argv)
 /*-------defaults for bloom filter building-------*/
   int opt;
   double tole_rate = 0, sampling_rate = 1;
-  char *ref = NULL, *list = NULL, *target_path = NULL, *source = NULL, *report_fmt = "json";
+  char *ref = NULL, *list = NULL, *target_path = NULL, *source = NULL,
+       *report_fmt = "json", *source1 = NULL, *source2 = NULL;
   // XXX: make r and l mutually exclusive
-  while ((opt = getopt (argc, argv, "s:t:r:o:q:f:h")) != -1)
+  while ((opt = getopt (argc, argv, "s:t:r:q:f:1:2:h")) != -1)
   {
       switch (opt)
       {
@@ -69,6 +73,12 @@ int bq_main (int argc, char **argv)
 	  break;
 	case 'q':
 	  source = optarg;
+	  break;
+	case '1':
+	  source1 = optarg;
+	  break;
+	case '2':
+	  source2 = optarg;
 	  break;
 	case 'r':
 	  ref = optarg;
@@ -85,9 +95,14 @@ int bq_main (int argc, char **argv)
       	  break;
       }
   }
-  if (!target_path && !source)
+  if (!ref)
   {
-  	fprintf (stderr, "\nPlease, at least specify a bloom filter (-r) and a query file (-q)\n");
+  	fprintf (stderr, "\nPlease, specify a bloom filter (-r)\n");
+      	exit (-1);
+  }
+  if ((!source && !(source1 && source2)) || (source && (source1 || source2)))
+  {
+  	fprintf (stderr, "\nPlease, specify either an unpaired query file -q or a paired query file with both -1 and -2\n");
       	exit (-1);
   }
   /*
